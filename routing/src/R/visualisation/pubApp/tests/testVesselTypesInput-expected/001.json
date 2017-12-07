@@ -1,0 +1,327 @@
+{
+  "input": {
+    "btn_plotTracks": 0,
+    "chk_customerOnly": false,
+    "chk_onlyShowTopNCncts": true,
+    "mdl_edgeInfo": false,
+    "mymap_bounds": {
+      "north": 58.8137417157078,
+      "east": 55.546875,
+      "south": -30.7512777762578,
+      "west": -55.37109375
+    },
+    "mymap_center": {
+      "lng": 0,
+      "lat": 20
+    },
+    "mymap_groups": [
+      "CartoDB.Positron",
+      "OSM",
+      "Tracks",
+      "edges",
+      "cells",
+      "pings",
+      "Waypoints"
+    ],
+    "mymap_zoom": 3,
+    "rdo_inout": "outbound",
+    "removeStartEndSameCountry": false,
+    "resetQuery": 0,
+    "sld_date": [
+      "2016-01-01T00:00:01Z",
+      "2016-01-14T23:59:59Z"
+    ],
+    "sld_min": 25,
+    "sld_tons": [
+      2000,
+      250000
+    ],
+    "sld_topn": 800,
+    "sld_transitCell": 5,
+    "slt_VT": "Tankers"
+  },
+  "output": {
+    "id": "  outbound",
+    "mymap": {
+      "x": {
+        "options": {
+          "crs": {
+            "crsClass": "L.CRS.EPSG3857",
+            "code": null,
+            "proj4def": null,
+            "projectedBounds": null,
+            "options": {
+
+            }
+          }
+        },
+        "calls": [
+          {
+            "method": "addProviderTiles",
+            "args": [
+              "CartoDB.Positron",
+              null,
+              "CartoDB.Positron",
+              {
+                "errorTileUrl": "",
+                "noWrap": false,
+                "zIndex": null,
+                "unloadInvisibleTiles": null,
+                "updateWhenIdle": null,
+                "detectRetina": false,
+                "reuseTiles": false
+              }
+            ]
+          },
+          {
+            "method": "addProviderTiles",
+            "args": [
+              "Stamen.TonerLite",
+              null,
+              "Toner Lite",
+              {
+                "errorTileUrl": "",
+                "noWrap": false,
+                "zIndex": null,
+                "unloadInvisibleTiles": null,
+                "updateWhenIdle": null,
+                "detectRetina": false,
+                "reuseTiles": false
+              }
+            ]
+          },
+          {
+            "method": "addTiles",
+            "args": [
+              "//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+              null,
+              "OSM",
+              {
+                "minZoom": 0,
+                "maxZoom": 18,
+                "maxNativeZoom": null,
+                "tileSize": 256,
+                "subdomains": "abc",
+                "errorTileUrl": "",
+                "tms": false,
+                "continuousWorld": false,
+                "noWrap": false,
+                "zoomOffset": 0,
+                "zoomReverse": false,
+                "opacity": 1,
+                "zIndex": null,
+                "unloadInvisibleTiles": null,
+                "updateWhenIdle": null,
+                "detectRetina": false,
+                "reuseTiles": false,
+                "attribution": "&copy; <a href=\"http://openstreetmap.org\">OpenStreetMap<\/a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA<\/a>"
+              }
+            ]
+          },
+          {
+            "method": "addProviderTiles",
+            "args": [
+              "Esri.WorldImagery",
+              null,
+              "Esri.WorldImagery",
+              {
+                "errorTileUrl": "",
+                "noWrap": false,
+                "zIndex": null,
+                "unloadInvisibleTiles": null,
+                "updateWhenIdle": null,
+                "detectRetina": false,
+                "reuseTiles": false
+              }
+            ]
+          },
+          {
+            "method": "addTiles",
+            "args": [
+              "http://fusillidata.ukwest.cloudapp.azure.com/tank_2016/{z}/{x}/{y}.png",
+              null,
+              "Tanker AIS",
+              {
+                "minZoom": 0,
+                "maxZoom": 18,
+                "maxNativeZoom": null,
+                "tileSize": 256,
+                "subdomains": "abc",
+                "errorTileUrl": "",
+                "tms": false,
+                "continuousWorld": false,
+                "noWrap": false,
+                "zoomOffset": 0,
+                "zoomReverse": false,
+                "opacity": 1,
+                "zIndex": null,
+                "unloadInvisibleTiles": null,
+                "updateWhenIdle": null,
+                "detectRetina": false,
+                "reuseTiles": false
+              }
+            ]
+          },
+          {
+            "method": "addTiles",
+            "args": [
+              "http://fusillidata.ukwest.cloudapp.azure.com/passenger_2016/{z}/{x}/{y}.png",
+              null,
+              "Passenger AIS",
+              {
+                "minZoom": 0,
+                "maxZoom": 18,
+                "maxNativeZoom": null,
+                "tileSize": 256,
+                "subdomains": "abc",
+                "errorTileUrl": "",
+                "tms": false,
+                "continuousWorld": false,
+                "noWrap": false,
+                "zoomOffset": 0,
+                "zoomReverse": false,
+                "opacity": 1,
+                "zIndex": null,
+                "unloadInvisibleTiles": null,
+                "updateWhenIdle": null,
+                "detectRetina": false,
+                "reuseTiles": false
+              }
+            ]
+          },
+          {
+            "method": "addLayersControl",
+            "args": [
+              [
+                "CartoDB.Positron",
+                "Toner Lite",
+                "OSM (default)",
+                "Esri.WorldImagery"
+              ],
+              [
+                "Tracks",
+                "edges",
+                "cells",
+                "pings",
+                "Waypoints",
+                "Tanker AIS",
+                "Passenger AIS"
+              ],
+              {
+                "collapsed": false,
+                "autoZIndex": true,
+                "position": "topright"
+              }
+            ]
+          },
+          {
+            "method": "addMeasure",
+            "args": [
+              {
+                "position": "bottomleft",
+                "primaryLengthUnit": "meters",
+                "primaryAreaUnit": "meters",
+                "activeColor": "#ABE67E",
+                "completedColor": "#C8F2BE",
+                "popupOptions": {
+                  "className": "leaflet-measure-resultpopup",
+                  "autoPanPadding": [
+                    10,
+                    10
+                  ]
+                },
+                "captureZIndex": 10000,
+                "localization": "en",
+                "decPoint": ".",
+                "thousandsSep": ","
+              }
+            ]
+          },
+          {
+            "method": "hideGroup",
+            "args": [
+              "Tanker AIS"
+            ]
+          },
+          {
+            "method": "hideGroup",
+            "args": [
+              "Passenger AIS"
+            ]
+          }
+        ],
+        "setView": [
+          [
+            20,
+            0
+          ],
+          3,
+          [
+
+          ]
+        ]
+      },
+      "evals": [
+
+      ],
+      "jsHooks": [
+
+      ],
+      "deps": [
+        {
+          "name": "leaflet-providers",
+          "version": "1.0.27",
+          "src": {
+            "href": "leaflet-providers-1.0.27"
+          },
+          "meta": null,
+          "script": "leaflet-providers.js",
+          "stylesheet": null,
+          "head": null,
+          "attachment": null,
+          "package": null,
+          "all_files": true
+        },
+        {
+          "name": "leaflet-providers-plugin",
+          "version": "1.1.0",
+          "src": {
+            "href": "leaflet-providers-plugin-1.1.0"
+          },
+          "meta": null,
+          "script": "leaflet-providers-plugin.js",
+          "stylesheet": null,
+          "head": null,
+          "attachment": null,
+          "package": null,
+          "all_files": true
+        },
+        {
+          "name": "leaflet-measure",
+          "version": "2.0.2",
+          "src": {
+            "href": "leaflet-measure-2.0.2"
+          },
+          "meta": null,
+          "script": "leaflet-measure.min.js",
+          "stylesheet": "leaflet-measure.css",
+          "head": null,
+          "attachment": null,
+          "package": null,
+          "all_files": true
+        }
+      ]
+    },
+    "nrows": {
+      "html": "71679 records",
+      "deps": [
+
+      ]
+    },
+    "portList": null,
+    "selectTrackUI": null
+  },
+  "export": {
+
+  }
+}
