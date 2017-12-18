@@ -200,10 +200,10 @@ object MarineSpatialLimits {
     val distinct_count = cellMMSIDS.toDF("_1", "_2", "_3","_4","_5")
       .select($"_1", $"_2")
       .groupBy("_1")
-      .agg('_1, countDistinct('_2).alias("UniqueCount"))
-      .orderBy(desc("UniqueCount"))
+      .agg('_1, countDistinct('_2).alias("total_year_unique_count"))
+      .orderBy(desc("total_year_unique_count"))
 
-    distinct_count.select($"_1", $"UniqueCount")
+    distinct_count.select($"_1", $"total_year_unique_count")
 
   }
 
@@ -257,7 +257,8 @@ object MarineSpatialLimits {
 
 
   
-    val aisPointsWithChartvtypeDF = aisPointsWithChartDF.join(ihsDF,aisPointsWithChartDF.col("mmsi")===ihsDF.col("ihsMMSI"))
+    val aisPointsWithChartvtypeDF = aisPointsWithChartDF.join(ihsDF,aisPointsWithChartDF.col("mmsi")===ihsDF.col("ihsMMSI")).select($"chart",$"mmsi",$"acq_time"
+      ,$"lon",$"lat",$"ihsShipTypeLevel2",$"ihsGrossTonnage")
 
     aisPointsWithChartvtypeDF.show()
     TankcountDF.show()
