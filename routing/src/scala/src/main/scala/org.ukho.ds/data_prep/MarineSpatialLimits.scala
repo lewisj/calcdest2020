@@ -145,25 +145,55 @@ object MarineSpatialLimits {
   }
 
   def appendPoly_marspat(spark: SparkSession, aisPointsDS: Dataset[(String, Timestamp, Double, Double)], encCoverageIndex: STRtree,
-                  cellCoverageMap: Map[Geometry, String]): Dataset[(String, String, Timestamp,Double,Double)] = {
+                  cellCoverageMap: Map[Geometry, String]): DataFrame = {
 
     val gf = new GeometryFactory()
 
     import spark.implicits._
 
-    val aisPointsWithB5DS = aisPointsDS.map { case (mmsi, acq_time, lon, lat) =>
+    val aisPointsWithPoly = aisPointsDS.map { case (mmsi, acq_time, lon, lat) =>
       val cellId = getIntersectionAisPoint_marspat(gf.createPoint(new Coordinate(lon, lat)), encCoverageIndex, cellCoverageMap)
       (cellId, mmsi, acq_time,lon,lat)
     } filter { _._1 != "None"}
 
 
 
-    val flataisPointswithchart = aisPointsWithB5DS.withColumn("_1", explode($"_1"))
+    val flataisDS = aisPointsWithPoly.withColumn("_1", explode($"_1"))
 
-    val flataisDS =flataisPointswithchart.as[(String,String, Timestamp, Double, Double)]
+
 
     flataisDS.orderBy("_2").orderBy("_3")
   }
+
+  def appendIHS(spark: SparkSession, aisPointswithPoly: DataFrame,ihsDF: DataFrame): DataFrame = {
+
+    import spark.implicits._
+
+    val aisPointsWithPolyIHS = aisPointswithPoly.join(ihsDF,aisPointswithPoly.col("_2")===ihsDF.col("ihsMMSI")).select($"_1",$"_2",$"_3"
+      ,$"_4",$"_5",$"ihsShipTypeLevel2",$"ihsGrossTonnage")
+
+
+    aisPointsWithPolyIHS
+  }
+
+
+
+  def appendmonth(spark: SparkSession, aisPointswithPolyVtype: DataFrame): DataFrame = {
+
+    import spark.implicits._
+
+    val month_col = month(aisPointswithPolyVtype("_3"))
+    val aisPointsWithAll = aisPointswithPolyVtype.withColumn("month_int",month_col)
+
+
+
+
+    aisPointsWithAll
+  }
+
+
+
+
 
   def getMmsisByShipTypeLevel2_marspat(spark: SparkSession, ihsDF: DataFrame, ShipTypeLevel2: String): Array[String] = {
 
@@ -194,22 +224,41 @@ object MarineSpatialLimits {
 
   }
 
-  def distinctCounter_marspat(spark: SparkSession, cellMMSIDS: Dataset[(String, String, Timestamp,Double,Double)]): DataFrame = {
+
+  def yearCounter(spark: SparkSession, AisPointsAll: DataFrame): DataFrame = {
     import spark.implicits._
 
-    val distinct_count = cellMMSIDS.toDF("_1", "_2", "_3","_4","_5")
-      .select($"_1", $"_2")
-      .groupBy("_1")
-      .agg('_1, countDistinct('_2).alias("total_year_unique_count"))
-      .orderBy(desc("total_year_unique_count"))
+    val distinct_count = AisPointsAll
+      .select($"_1",$"_2",$"month_int",$"ihsShipTypeLevel2")
+      .groupBy($"_1",$"ihsShipTypeLevel2")
+      .agg('_1, countDistinct('_2).alias("total__unique_count_month"))
+      .orderBy(desc("_1"),desc("total__unique_count_month"))
 
-    distinct_count.select($"_1", $"total_year_unique_count")
+    val filler_month = "0"
+
+    val distinct_count_with_month = distinct_count.withColumn("month_int",lit(filler_month))
+    distinct_count_with_month.select($"_1",$"ihsShipTypeLevel2",$"month_int", $"total__unique_count_month")
+
+  }
+
+
+def monthCounter(spark: SparkSession, AisPointsAll: DataFrame): DataFrame = {
+    import spark.implicits._
+
+    val distinct_count = AisPointsAll
+      .select($"_1",$"_2",$"month_int",$"ihsShipTypeLevel2")
+      .groupBy($"_1",$"month_int",$"ihsShipTypeLevel2")
+      .agg('_1, countDistinct('_2).alias("month_unique_count_month"))
+      .orderBy(desc("_1"),asc("month_int"),desc("month_unique_count_month"))
+
+    distinct_count.select($"_1",$"ihsShipTypeLevel2",$"month_int",$"month_unique_count_month")
 
   }
 
 
 
   def main(args: Array[String]): Unit = {
+
 
     require(args.length >= 1, "Specify data file")
 
@@ -221,11 +270,16 @@ object MarineSpatialLimits {
     import spark.implicits._
     import org.apache.spark.SparkContext._
 
+
+
+
+
     val coveragePath = args(0)
     val aisBeforeDir = args(1)
     val aisAfterDir = args(2)
     val ihsPath= args(3)
     val outputPath = args(4)
+
 
 
     val ihsDF = spark.read
@@ -235,34 +289,48 @@ object MarineSpatialLimits {
 
     val (encCoverageIndex, cellCoverageMap) = readCellBoundariesIntoRTree_marspat(spark, coveragePath)
     val aisBeforeDF = readArkevistaPositionDataBefore201607_marspat(spark, aisBeforeDir)
+
+    aisBeforeDF.show()
     val aisAfterDF = readArkevistaPositionDataAfter201607_marspat(spark, aisAfterDir)
+
+    aisAfterDF.show()
 
 
     val aisPointsDS = aisAfterDF.union(aisBeforeDF).as[(String, Timestamp, Double, Double)]
+    aisPointsDS.show()
+
+    val aisPointsWithPoly = appendPoly_marspat(spark, aisPointsDS, encCoverageIndex, cellCoverageMap)
+
+    val aisPointsWithPolyVtype = appendIHS(spark,aisPointsWithPoly,ihsDF)
+
+    val aisPointsWithPolyVtypeMonth = appendmonth(spark,aisPointsWithPolyVtype)
+    aisPointsWithPolyVtypeMonth.show()
+
+    val monthCount = monthCounter(spark,aisPointsWithPolyVtypeMonth)
+    val yearCount = yearCounter(spark,aisPointsWithPolyVtypeMonth)
 
 
-    val aisPointsWithB5DS = appendPoly_marspat(spark, aisPointsDS, encCoverageIndex, cellCoverageMap)
-
-    val countDF = distinctCounter_marspat(spark, aisPointsWithB5DS)
-
-    val mmsis = getMmsisByShipTypeLevel2_marspat(spark, ihsDF, "Tankers")
-
-    val aisFilteredDF = filterAisByMmsis_marspat(spark, aisPointsWithB5DS, mmsis)
-
-    val aisFilteredDS = aisFilteredDF.as[(String,String, Timestamp, Double, Double)]
-
-    val TankcountDF = distinctCounter_marspat(spark, aisFilteredDS)
-
-    val aisPointsWithChartDF = aisPointsWithB5DS.toDF("chart","mmsi","acq_time","lon","lat")
 
 
-  
-    val aisPointsWithChartvtypeDF = aisPointsWithChartDF.join(ihsDF,aisPointsWithChartDF.col("mmsi")===ihsDF.col("ihsMMSI")).select($"chart",$"mmsi",$"acq_time"
-      ,$"lon",$"lat",$"ihsShipTypeLevel2",$"ihsGrossTonnage")
+   // val aisFilteredDF = filterAisByMmsis_marspat(spark, aisPointsWithPoly, mmsis)
 
-    aisPointsWithChartvtypeDF.show()
-    TankcountDF.show()
-    countDF
+    //val aisFilteredDS = aisFilteredDF.as[(String,String, Timestamp, Double, Double)]
+
+    //val TankcountDF = distinctCounter_marspat(spark, aisFilteredDS)
+    //val countDF = distinctCounter_marspat(spark, aisPointsWithPoly)
+
+   //aisPointsWithPoly.show()
+    //aisPointsWithPolyVtype.show()
+    //aisPointsWithPolyVtypeMonth.show()
+
+
+
+
+    val totalCounts = monthCount.union(yearCount).toDF()
+
+
+    totalCounts.show()
+    totalCounts
       .write
       .csv(outputPath)
   }
