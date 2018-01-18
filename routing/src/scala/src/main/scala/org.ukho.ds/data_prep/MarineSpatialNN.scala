@@ -225,19 +225,36 @@ centreCord
 
   }
 
-  def partitionCreation(spark: SparkSession, aisPointsComplete: DataFrame): DataFrame = {
+  def partitionCreation(spark: SparkSession, aisPointsCompleteDF: DataFrame): DataFrame = {
 
-  val pointsByPartition = aisPointsComplete.groupBy("cell")
+    //  val point$"total_count"sByPartition = aisPointsComplete.groupBy("cell")
+    import spark.implicits._
 
-    val pointsByPartition = aisPointsComplete.groupByKey()
+    //    val pointsByPartition = aisPointsComplete.repartition($"cell")
+
+    //    pointsByPartition.mapPartitions(x => x.)
+    aisPointsCompleteDF
+
+    val aisPointsPartsDF = aisPointsCompleteDF
+      .select("cell", "_4", "_5")
+      .as[(String, Double, Double)]
+      .groupByKey(_._1)
+      .flatMapGroups { case (cell, lon, lat) =>
+          println(cell,lat,lon)
+          cell
+    }
+//
 
 
-    val results= aisPointsComplete.map { case (mmsi, acq_time, lon, lat) =>
-      val cellids = getCellAndBorders(lon,lat,cellSize,epsilon)
-      (cellids, mmsi, acq_time,lon,lat)
-    } filter { _._1 != "None"}
-
-    aisPointsComplete
+//    val pointsByPartition = aisPointsComplete.repartition($"total_count")
+aisPointsComplete
+//
+//    val results= aisPointsComplete.map { case (mmsi, acq_time, lon, lat) =>
+//      val cellids = getCellAndBorders(lon,lat,cellSize,epsilon)
+//      (cellids, mmsi, acq_time,lon,lat)
+//    } filter { _._1 != "None"}
+//
+   aisPointsComplete
   }
 
 
