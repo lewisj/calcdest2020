@@ -218,11 +218,26 @@ centreCord
         .filter($"type"=!="border")
       .groupBy($"cell",$"ihsUkhoVesselType")
 
-      .agg('cell, countDistinct('_2).alias("total_count"))
+      .agg('cell, count('_2).alias("total_count"))
       .orderBy(desc("cell"),desc("total_count"))
 
     distinct_count.select($"cell",$"ihsUkhoVesselType",$"total_count")
 
+  }
+
+  def partitionCreation(spark: SparkSession, aisPointsComplete: DataFrame): DataFrame = {
+
+  val pointsByPartition = aisPointsComplete.groupBy("cell")
+
+    val pointsByPartition = aisPointsComplete.groupByKey()
+
+
+    val results= aisPointsComplete.map { case (mmsi, acq_time, lon, lat) =>
+      val cellids = getCellAndBorders(lon,lat,cellSize,epsilon)
+      (cellids, mmsi, acq_time,lon,lat)
+    } filter { _._1 != "None"}
+
+    aisPointsComplete
   }
 
 
