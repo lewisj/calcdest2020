@@ -124,6 +124,7 @@ class CalculateDestinationsTests extends FunSuite with DatasetSuiteBase with Dat
     val (encCoverageIndex, cellCoverageMap) = readCellBoundariesIntoRTree(spark, encCoveragePath)
     val aisPointsWithB5DS = appendBand5(spark, aisNoB5DS, encCoverageIndex, cellCoverageMap)
 
+
     assertDatasetEquals(correctDS, aisPointsWithB5DS)
   }
 

@@ -9,7 +9,7 @@ import com.vividsolutions.jts.io.WKTReader
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
-import org.ukho.ds.data_prep.MarineSpatialLimits.{appendBand5_marspat, readCellBoundariesIntoRTree_marspat}
+import org.ukho.ds.data_prep.MarineSpatialLimits.{appendPoly_marspat, readCellBoundariesIntoRTree_marspat}
 import org.ukho.ds.data_prep.MarineSpatialLimits._
 //import org.ukho.ds.data_prep.cellRecord
 
@@ -55,7 +55,7 @@ class marineSpatialTests extends FunSuite with DatasetSuiteBase with DataFrameSu
 
 
 
-
+/*
 
   test("test correct number of band 5 cells"){
     val dataFilePath = sncCoveragePath
@@ -107,7 +107,7 @@ class marineSpatialTests extends FunSuite with DatasetSuiteBase with DataFrameSu
 
     assertDatasetEquals(correctDS, aisPointsWithB5DS)
   }
-
+*/
 
   test("test that union of before and after works successfully"){
     import spark.implicits._
@@ -132,6 +132,38 @@ class marineSpatialTests extends FunSuite with DatasetSuiteBase with DataFrameSu
 
   }
 
+  test("Test appending SNC chart detials onto ais"){
+
+    import spark.implicits._
+    val aisAfterPath="/home/ubuntu/strozzapreti/routing/src/scala/src/test/resources/skye_pos_yacht.csv"
+    val outputPath = "/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/output.csv"
+    val coveragePath = "/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/snc_cat_scala.csv"
+    val aisafterDF=readArkevistaPositionDataAfter201607_marspat(spark, aisAfterPath)
+    val aisPointsDS = aisafterDF.as[(String, Timestamp, Double, Double)]
+
+
+    val (encCoverageIndex, cellCoverageMap) = readCellBoundariesIntoRTree_marspat(spark, coveragePath)
+
+
+    val aisPointsWithChart = appendPoly_marspat(spark, aisPointsDS, encCoverageIndex, cellCoverageMap)
+
+    aisPointsWithChart.show()
+
+    aisPointsWithChart.write
+      .csv(outputPath)
+    val aisPointsWithChartDF = aisPointsWithChart.toDF()
+    val correctDF = spark.read
+      .option("header", "false")
+      .option("delimiter", "\t")
+      .schema(aisTempSchema)
+      .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+      .csv("/home/ubuntu/strozzapreti/routing/src/scala/src/test/resources/yacht_expected.csv")
+
+    assertDataFrameEquals(aisPointsWithChartDF,correctDF)
+    //checked in postgis
+  }
+
+/*
   test("test many mmsis many intersections with band 5"){
 
     val aisDF = spark.read
@@ -159,7 +191,7 @@ class marineSpatialTests extends FunSuite with DatasetSuiteBase with DataFrameSu
   }
 
 
-
+*/
 
 
 

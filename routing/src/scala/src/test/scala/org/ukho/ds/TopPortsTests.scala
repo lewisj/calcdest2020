@@ -126,6 +126,7 @@ class TopPortsTests extends FunSuite with DatasetSuiteBase with DataFrameSuiteBa
     val correctDS = correctDF.as[(String, String, Timestamp)]
 
     val (encCoverageIndex, cellCoverageMap) = readCellBoundariesIntoRTree(spark, encCoveragePath)
+    println(encCoverageIndex)
     val aisPointsWithB5DS = appendBand5(spark, aisNoB5DS, encCoverageIndex, cellCoverageMap)
 
     assertDatasetEquals(correctDS, aisPointsWithB5DS)
