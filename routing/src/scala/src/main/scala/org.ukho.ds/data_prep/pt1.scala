@@ -34,8 +34,6 @@ object pt1
          StructField("radio_status", StringType, nullAllowed),
          StructField("flags", StringType, nullAllowed)))
 
-
-
    def getCellAndBorders(lon: Double,lat: Double,cellSize: Double,eps:Double):( Map[String,String]   )=
    {
       var cellIds:Map[String,String]=  Map()
@@ -114,9 +112,27 @@ object pt1
       ret
    }
 
-   def printeMap(x:(String,Iterable[Row])) =
+   def makeNearestNeighbours(cellId:String,points:Iterable[Row]):String = 
    {
-      println(x._1 +"="+ x._2.size)
+      // write code to work out NN
+      val total = r.nextInt(100)
+      
+      /*
+            here is the code for working out nearest neighbours
+       */
+      
+      cellId + "," + total.toString
+   }
+   
+   def p(x:Row) =
+   {
+      println(x)
+   }
+   def processCell(x:(String,Iterable[Row])) =
+   {
+      val id = x._1
+      val it = x._2
+      it.foreach(x=>makeNearestNeighbours(id,it))
    }
 
    def getID(r:Row):String =
@@ -135,8 +151,7 @@ object pt1
       val conf = new SparkConf().setAppName("spkTest")
       conf.setMaster(args(0))
       val sc = new SparkContext(conf)
-
-
+      
       val spark = SparkSession.builder()
          .appName("calculateDestinations")
          .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
@@ -153,15 +168,13 @@ object pt1
             .select("MMSI", "acquisition_time", "lon", "lat")
 
       df.show(5)
-
-      import spark.implicits._
-
+      
       val res = df.
          rdd.
          flatMap(x=>setID(x)).
          groupBy(x=>getID(x)).
-         collect().
-         map(x=>printeMap(x))
+         map(x=>processCell(x)).
+         collect()
 
       println("hello world");
 
