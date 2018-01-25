@@ -6,16 +6,23 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+import archery.Box
+import archery.Entry
+import archery.Point
+import archery.RTree
+import org.apache.spark.mllib.linalg.{Vector, Vectors}
+
 
 object pt1
 {
 
-   case class pt(lat:Double,lon:Double,var id:Int=0,var ctype:String = "")
    val r = scala.util.Random
    val cellSize = 1
    val eps      = 0.1
+   val minDistanceSquared = eps * eps
 
-   val nullAllowed = true
+
+  val nullAllowed = true
    val positionSchemaAfter201607 = StructType(
       Array(StructField("ArkPosID", StringType, nullAllowed),
          StructField("MMSI", StringType, nullAllowed),
@@ -105,29 +112,116 @@ object pt1
       {
          val cellid = k
          val pttype = v.toString()
-         val newrow = Row(cellid,pttype,lon,lat)
+
+
+        val newPoint = new AISPoint(Vectors.dense(lon,lat))
+        val newrow = Row(cellid,pttype,newPoint )
+
          //println(s"-> $newrow")
          ret = ret :+ newrow
       }
       ret
    }
 
-   def makeNearestNeighbours(cellId:String,points:Iterable[Row]):String = 
+
+  case class AISPoint(val vector: Vector) {
+
+    def x = vector(0)
+    def y = vector(1)
+
+    def distanceSquared(other: AISPoint): Double = {
+      val dx = other.x - x
+      val dy = other.y - y
+      (dx * dx) + (dy * dy)
+    }
+
+  }
+
+  object AISLabeledPoint {
+
+    val Unknown = 0
+
+    object Flag extends Enumeration {
+      type Flag = Value
+      val Border, Core, Noise, NotFlagged = Value
+    }
+
+  }
+
+
+  class AISLabeledPoint(vector: Vector) extends AISPoint(vector) {
+
+    def this(point: AISPoint) = this(point.vector)
+
+    var flag = AISLabeledPoint.Flag.NotFlagged
+    var size = AISLabeledPoint.Unknown
+    var visited = false
+
+    override def toString(): String = {
+      s"$vector,$size,$flag"
+    }
+
+  }
+
+
+
+
+
+    def toBoundingBox(pointRow:AISPoint): Box = {
+      Box(
+         (pointRow.x.toString.toDouble - eps).toFloat,
+         (pointRow.y.toString.toDouble - eps).toFloat,
+         (pointRow.x.toString.toDouble + eps).toFloat,
+         (pointRow.y.toString.toDouble + eps).toFloat)
+   }
+
+
+
+  def inRange(point: AISLabeledPoint)(entry: Entry[AISLabeledPoint]): Boolean = {
+    entry.value.distanceSquared(point) <= minDistanceSquared
+  }
+
+   def makeNearestNeighbours(cellId:String,aisPoints:Iterable[Row]):String =
    {
       // write code to work out NN
       val total = r.nextInt(100)
-      
-      /*
-            here is the code for working out nearest neighbours
-       */
-      
+     aisPoints.foreach(p)
+
+     val tree = aisPoints.foldLeft(RTree[AISLabeledPoint]())(
+       (tempTree, aisPoints) =>
+         tempTree.insert(
+           Entry(Point(aisPoints(2).asInstanceOf[AISPoint].x.toFloat, aisPoints(2).asInstanceOf[AISPoint].y.toFloat), new AISLabeledPoint(
+             aisPoints(2).asInstanceOf[AISPoint]
+           ))))
+
+
+     tree.entries.foreach(entry => {
+
+       val point = entry.value
+
+       if (!point.visited) {
+         point.visited = true
+
+         val neighbors = tree.search(toBoundingBox(point), inRange(point))
+
+
+         point.size = neighbors.size
+         println(neighbors.size)
+
+       }
+
+     })
+
+
       cellId + "," + total.toString
    }
    
    def p(x:Row) =
    {
-      println(x)
+     val testval = x(2).asInstanceOf[AISPoint].x
+      println( testval )
    }
+
    def processCell(x:(String,Iterable[Row])) =
    {
       val id = x._1
@@ -139,6 +233,7 @@ object pt1
    {
       r(0).toString
    }
+
 
    def main(args: Array[String]): Unit =
    {
