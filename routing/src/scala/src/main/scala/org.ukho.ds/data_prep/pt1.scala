@@ -11,15 +11,17 @@ import archery.Entry
 import archery.Point
 import archery.RTree
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
-
+import org.apache.spark.rdd.RDD
+import java.io._
 
 object pt1
 {
 
    val r = scala.util.Random
    val cellSize = 1
-   val eps      = 0.1
+   val eps      = 0.01
    val minDistanceSquared = eps * eps
+
 
 
   val nullAllowed = true
@@ -93,12 +95,13 @@ object pt1
       val y3d = f"${yVar.toInt}%03d"
       x3d+"."+y3d
    }
+
    def roundUp(d: Double) =
    {
          math.ceil(d).toInt
    }
 
-   def setID(r:Row):Seq[Row] =
+   def getGroupedIter(r:Row):Seq[Row] =
    {
       //println(r)
       // call function to get cell id....
@@ -163,9 +166,10 @@ object pt1
 
   }
 
-
-
-
+    def using[T <: Closeable, R](resource: T)(block: T => R): R = {
+      try { block(resource) }
+      finally { resource.close() }
+    }
 
     def toBoundingBox(pointRow:AISPoint): Box = {
       Box(
@@ -175,18 +179,12 @@ object pt1
          (pointRow.y.toString.toDouble + eps).toFloat)
    }
 
+    def inRange(point: AISLabeledPoint)(entry: Entry[AISLabeledPoint]): Boolean = {
+      entry.value.distanceSquared(point) <= minDistanceSquared
+    }
 
-
-  def inRange(point: AISLabeledPoint)(entry: Entry[AISLabeledPoint]): Boolean = {
-    entry.value.distanceSquared(point) <= minDistanceSquared
-  }
-
-   def makeNearestNeighbours(cellId:String,aisPoints:Iterable[Row]):String =
-   {
-      // write code to work out NN
-      val total = r.nextInt(100)
-     aisPoints.foreach(p)
-
+   def makeNearestNeighbours(cellId:String,aisPoints:Iterable[Row]):Integer ={
+println(cellId+"this is a cellID")
      val tree = aisPoints.foldLeft(RTree[AISLabeledPoint]())(
        (tempTree, aisPoints) =>
          tempTree.insert(
@@ -195,38 +193,44 @@ object pt1
            ))))
 
 
+     var resultsArray = Array.empty[String]
+
      tree.entries.foreach(entry => {
-
        val point = entry.value
-
        if (!point.visited) {
          point.visited = true
 
          val neighbors = tree.search(toBoundingBox(point), inRange(point))
-
-
          point.size = neighbors.size
-         println(neighbors.size)
 
+        resultsArray :+= point.x+","+point.y+","+point.size
        }
 
      })
 
 
-      cellId + "," + total.toString
-   }
-   
-   def p(x:Row) =
-   {
-     val testval = x(2).asInstanceOf[AISPoint].x
-      println( testval )
+       using(new BufferedWriter(new OutputStreamWriter(new FileOutputStream("/home/ubuntu/output/"+cellId+"out.csv")))) {
+         writer =>
+           for (x <- resultsArray) {
+            println(x)
+             writer.write(x + "\n")
+           }
+       }
+
+     resultsArray.size
    }
 
-   def processCell(x:(String,Iterable[Row])) =
+   
+
+
+   def processCell(x:(String,Iterable[Row])):String =
    {
       val id = x._1
       val it = x._2
-      it.foreach(x=>makeNearestNeighbours(id,it))
+     makeNearestNeighbours(id,it)
+
+     println("Competed id ----=========================="+id+"=====================---")
+  id
    }
 
    def getID(r:Row):String =
@@ -263,15 +267,16 @@ object pt1
             .select("MMSI", "acquisition_time", "lon", "lat")
 
       df.show(5)
-      
-      val res = df.
+     val res = df.
          rdd.
-         flatMap(x=>setID(x)).
+         flatMap(x=>getGroupedIter(x)).
          groupBy(x=>getID(x)).
-         map(x=>processCell(x)).
-         collect()
+         map(x=>processCell(x))
+            .collect()
 
-      println("hello world");
+
+
+       println("hello world");
 
    }
 }
