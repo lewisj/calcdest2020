@@ -1,7 +1,7 @@
 /**
-  * Created by JP on 22/01/2018.
+  * Created by JP& JL on 22/01/2018.
   */
-
+package org.ukho.JL.nn
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
@@ -13,8 +13,9 @@ import archery.RTree
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.rdd.RDD
 import java.io._
+import java.sql.Timestamp
 
-object pt1
+object MarineSpatialNN
 {
 
    val r = scala.util.Random
@@ -25,6 +26,18 @@ object pt1
 
 
   val nullAllowed = true
+  val positionSchemaBefore201607 = StructType(
+    Array(StructField("ArkPosID", StringType, nullAllowed),
+      StructField("MMSI", StringType, nullAllowed),
+      StructField("NavigationalStatus", StringType, nullAllowed),
+      StructField("lon", DoubleType, nullAllowed),
+      StructField("lat", DoubleType, nullAllowed),
+      StructField("sog", StringType, nullAllowed),
+      StructField("cog", StringType, nullAllowed),
+      StructField("rot", StringType, nullAllowed),
+      StructField("heading", StringType, nullAllowed),
+      StructField("acquisition_time", TimestampType, nullAllowed),
+      StructField("IPType", StringType, nullAllowed)))
    val positionSchemaAfter201607 = StructType(
       Array(StructField("ArkPosID", StringType, nullAllowed),
          StructField("MMSI", StringType, nullAllowed),
@@ -42,6 +55,8 @@ object pt1
          StructField("special_manoeurve", StringType, nullAllowed),
          StructField("radio_status", StringType, nullAllowed),
          StructField("flags", StringType, nullAllowed)))
+
+
 
    def getCellAndBorders(lon: Double,lat: Double,cellSize: Double,eps:Double):( Map[String,String]   )=
    {
@@ -127,69 +142,35 @@ object pt1
    }
 
 
-  case class AISPoint(val vector: Vector) {
 
-    def x = vector(0)
-    def y = vector(1)
 
-    def distanceSquared(other: AISPoint): Double = {
-      val dx = other.x - x
-      val dy = other.y - y
-      (dx * dx) + (dy * dy)
-    }
 
+  def processCell(x:(String,Iterable[Row])):String =
+  {
+    val id = x._1
+    val it = x._2
+    makeNearestNeighbours(id,it)
+
+    println("Competed id ----=========================="+id+"=====================---")
+    id
   }
 
-  object AISLabeledPoint {
-
-    val Unknown = 0
-
-    object Flag extends Enumeration {
-      type Flag = Value
-      val Border, Core, Noise, NotFlagged = Value
-    }
-
+  def getID(r:Row):String =
+  {
+    r(0).toString
   }
 
 
-  class AISLabeledPoint(vector: Vector) extends AISPoint(vector) {
 
-    def this(point: AISPoint) = this(point.vector)
-
-    var flag = AISLabeledPoint.Flag.NotFlagged
-    var size = AISLabeledPoint.Unknown
-    var visited = false
-
-    override def toString(): String = {
-      s"$vector,$size,$flag"
-    }
-
-  }
-
-    def using[T <: Closeable, R](resource: T)(block: T => R): R = {
-      try { block(resource) }
-      finally { resource.close() }
-    }
-
-    def toBoundingBox(pointRow:AISPoint): Box = {
-      Box(
-         (pointRow.x.toString.toDouble - eps).toFloat,
-         (pointRow.y.toString.toDouble - eps).toFloat,
-         (pointRow.x.toString.toDouble + eps).toFloat,
-         (pointRow.y.toString.toDouble + eps).toFloat)
-   }
-
-    def inRange(point: AISLabeledPoint)(entry: Entry[AISLabeledPoint]): Boolean = {
-      entry.value.distanceSquared(point) <= minDistanceSquared
-    }
-
-   def makeNearestNeighbours(cellId:String,aisPoints:Iterable[Row]):Integer ={
+   def makeNearestNeighbours(cellId:String,nnRow:Iterable[Row]):Integer ={
 println(cellId+"this is a cellID")
-     val tree = aisPoints.foldLeft(RTree[AISLabeledPoint]())(
-       (tempTree, aisPoints) =>
+
+
+     val tree = nnRow.foldLeft(RTree[AISLabeledPoint]())(
+       (tempTree, nnPointFromRow) =>
          tempTree.insert(
-           Entry(Point(aisPoints(2).asInstanceOf[AISPoint].x.toFloat, aisPoints(2).asInstanceOf[AISPoint].y.toFloat), new AISLabeledPoint(
-             aisPoints(2).asInstanceOf[AISPoint]
+           Entry(Point(nnPointFromRow(2).asInstanceOf[AISPoint].x.toFloat, nnPointFromRow(2).asInstanceOf[AISPoint].y.toFloat), new AISLabeledPoint(
+             nnPointFromRow(2).asInstanceOf[AISPoint]
            ))))
 
 
@@ -203,7 +184,10 @@ println(cellId+"this is a cellID")
          val neighbors = tree.search(toBoundingBox(point), inRange(point))
          point.size = neighbors.size
 
-        resultsArray :+= point.x+","+point.y+","+point.size
+        //stops the duplication of points from overlap, could be better if AISPoint had the flag for border ToDO
+         if(createGridId(roundUp(point.x),roundUp(point.y)) == cellId){
+
+        resultsArray :+= point.x+","+point.y+","+point.size}
        }
 
      })
@@ -220,36 +204,41 @@ println(cellId+"this is a cellID")
      resultsArray.size
    }
 
-   
+  def using[T <: Closeable, R](resource: T)(block: T => R): R = {
+    try { block(resource) }
+    finally { resource.close() }
+  }
+
+  def toBoundingBox(pointRow:AISPoint): Box = {
+    Box(
+      (pointRow.x.toString.toDouble - eps).toFloat,
+      (pointRow.y.toString.toDouble - eps).toFloat,
+      (pointRow.x.toString.toDouble + eps).toFloat,
+      (pointRow.y.toString.toDouble + eps).toFloat)
+  }
+
+  def inRange(point: AISLabeledPoint)(entry: Entry[AISLabeledPoint]): Boolean = {
+    entry.value.distanceSquared(point) <= minDistanceSquared
+  }
 
 
-   def processCell(x:(String,Iterable[Row])):String =
-   {
-      val id = x._1
-      val it = x._2
-     makeNearestNeighbours(id,it)
 
-     println("Competed id ----=========================="+id+"=====================---")
-  id
-   }
-
-   def getID(r:Row):String =
-   {
-      r(0).toString
-   }
 
 
    def main(args: Array[String]): Unit =
    {
       require(args.length >= 1, "Specify data file")
 
-      val dataPath = args(1)
+      val beforeDataPath = args(0)
+      val afterDataPath = args(1)
 
-      println(s"datapath=$dataPath")
 
-      val conf = new SparkConf().setAppName("spkTest")
-      conf.setMaster(args(0))
-      val sc = new SparkContext(conf)
+
+      println(s"datapath=$beforeDataPath")
+
+     val conf = new SparkConf().setAppName("spkTest")
+
+     val sc = new SparkContext(conf)
       
       val spark = SparkSession.builder()
          .appName("calculateDestinations")
@@ -258,25 +247,36 @@ println(cellId+"this is a cellID")
 
       spark.sparkContext.setLogLevel("WARN")
 
-      val df = spark.read
+     val beforeDF = spark.read
+       .option("header", "false")
+       .option("delimiter", "\t")
+       .schema(positionSchemaBefore201607)
+       .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+       .csv(beforeDataPath)
+       .select("MMSI", "acquisition_time", "lon", "lat")
+
+
+      val afterDF = spark.read
             .option("header", "false")
             .option("delimiter", "\t")
             .schema(positionSchemaAfter201607)
             .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
-            .csv(dataPath)
+            .csv(afterDataPath)
             .select("MMSI", "acquisition_time", "lon", "lat")
 
-      df.show(5)
-     val res = df.
-         rdd.
-         flatMap(x=>getGroupedIter(x)).
-         groupBy(x=>getID(x)).
-         map(x=>processCell(x))
-            .collect()
 
 
+     val aisPointsDF = beforeDF.union(afterDF).toDF("mmsi","acquisition_time", "lon", "lat")
 
-       println("hello world");
+     aisPointsDF.show(5)
+     val res = aisPointsDF
+           .rdd
+           .flatMap(x=>getGroupedIter(x))
+           .groupBy(x=>getID(x))
+           .map(x=>processCell(x))
+       .collect()
+
+
 
    }
 }

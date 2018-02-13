@@ -1,4 +1,4 @@
-package org.ukho.ds.data_prep
+package org.ukho.JL.nn
 
 import java.sql.Timestamp
 
