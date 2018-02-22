@@ -1,4 +1,4 @@
-package org.ukho.JL.nn
+package org.ukho.jl.nn
 
 import java.sql.Timestamp
 
