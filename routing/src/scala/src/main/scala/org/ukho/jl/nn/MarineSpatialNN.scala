@@ -1,7 +1,8 @@
 /**
   * Created by JP& JL on 22/01/2018.
   */
-package org.ukho.JL.nn
+package org.ukho.jl.nn
+
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
@@ -14,6 +15,8 @@ import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.rdd.RDD
 import java.io._
 import java.sql.Timestamp
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem,Path}
 
 object MarineSpatialNN
 {
@@ -128,15 +131,15 @@ object MarineSpatialNN
       var ret = Seq[Row]()
       for ((k,v) <- cellIDs)
       {
-         val cellid = k
-         val pttype = v.toString()
+         val cellID = k
+         val ptType = v.toString()
 
 
         val newPoint = new AISPoint(Vectors.dense(lon,lat))
-        val newrow = Row(cellid,pttype,newPoint )
+        val newRow = Row(cellID,ptType,newPoint )
 
-         //println(s"-> $newrow")
-         ret = ret :+ newrow
+         //println(s"-> $newRow")
+         ret = ret :+ newRow
       }
       ret
    }
@@ -145,14 +148,12 @@ object MarineSpatialNN
 
 
 
-  def processCell(x:(String,Iterable[Row])):String =
+  def processCell(x:(String,Iterable[Row])):Array[String] =
   {
     val id = x._1
     val it = x._2
-    makeNearestNeighbours(id,it)
-
-    println("Competed id ----=========================="+id+"=====================---")
-    id
+    val outPut = makeNearestNeighbours(id,it)
+    outPut
   }
 
   def getID(r:Row):String =
@@ -162,10 +163,11 @@ object MarineSpatialNN
 
 
 
-   def makeNearestNeighbours(cellId:String,nnRow:Iterable[Row]):Integer ={
-println(cellId+"this is a cellID")
+   def makeNearestNeighbours(cellId:String,nnRow:Iterable[Row]):Array[String]={
+//println(cellId+"this is a cellID")
 
 
+     println("Completed id ----=========================="+cellId+"=====================---")
      val tree = nnRow.foldLeft(RTree[AISLabeledPoint]())(
        (tempTree, nnPointFromRow) =>
          tempTree.insert(
@@ -193,15 +195,21 @@ println(cellId+"this is a cellID")
      })
 
 
-       using(new BufferedWriter(new OutputStreamWriter(new FileOutputStream("/home/ubuntu/output/"+cellId+"out.csv")))) {
-         writer =>
-           for (x <- resultsArray) {
-            println(x)
-             writer.write(x + "\n")
-           }
-       }
 
-     resultsArray.size
+
+
+//
+//
+//       using(new BufferedWriter(new OutputStreamWriter(new FileOutputStream()))) { //"/home/lewisj/out/"+cellId+"out.csv"
+//         writer =>
+//           for (x <- resultsArray) {
+//            //println(x)
+//
+//             writer.write(x + "\n")
+//           }
+//       }
+
+     resultsArray
    }
 
   def using[T <: Closeable, R](resource: T)(block: T => R): R = {
@@ -231,21 +239,33 @@ println(cellId+"this is a cellID")
 
       val beforeDataPath = args(0)
       val afterDataPath = args(1)
+     val outputpath = args(2)
 
 
 
       println(s"datapath=$beforeDataPath")
 
-     val conf = new SparkConf().setAppName("spkTest")
 
-     val sc = new SparkContext(conf)
+//     val hadoop : FileSystem = {
+//       val conf = new Configuration( )
+//       conf.set( "fs.defaultFS", "hdfs://localhost:9000" )
+//       FileSystem.get( conf )
+//     }
+
       
       val spark = SparkSession.builder()
-         .appName("calculateDestinations")
+         .appName("Nearest Neighbour - Its awesome")
          .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
          .getOrCreate()
-
+     import spark.implicits._
       spark.sparkContext.setLogLevel("WARN")
+
+     val sc = spark.sparkContext
+
+     val fs = FileSystem.get(sc.hadoopConfiguration)
+
+
+
 
      val beforeDF = spark.read
        .option("header", "false")
@@ -265,7 +285,6 @@ println(cellId+"this is a cellID")
             .select("MMSI", "acquisition_time", "lon", "lat")
 
 
-
      val aisPointsDF = beforeDF.union(afterDF).toDF("mmsi","acquisition_time", "lon", "lat")
 
      aisPointsDF.show(5)
@@ -274,9 +293,12 @@ println(cellId+"this is a cellID")
            .flatMap(x=>getGroupedIter(x))
            .groupBy(x=>getID(x))
            .map(x=>processCell(x))
-       .collect()
 
+     val output = res.flatMap(y=>y).toDF()
 
+     output.show(5)
+
+     output.write.csv(outputpath)
 
    }
 }
