@@ -15,15 +15,17 @@ import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.rdd.RDD
 import java.io._
 import java.sql.Timestamp
+
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem,Path}
+import org.apache.hadoop.fs.{FileSystem, Path}
+
 
 object MarineSpatialNN
 {
 
-   val r = scala.util.Random
-   val cellSize = 1
-   val eps      = 0.01
+//   val r = scala.util.Random
+   val cellSize = 0.1
+   val eps      = 0.005
    val minDistanceSquared = eps * eps
 
 
@@ -59,11 +61,57 @@ object MarineSpatialNN
          StructField("radio_status", StringType, nullAllowed),
          StructField("flags", StringType, nullAllowed)))
 
+  val ihsSchemaSubsetNN = StructType(
+    Array(StructField("ihsMMSI", StringType, nullAllowed),
+      StructField("ihsShipTypeLevel5", StringType, nullAllowed),
+      StructField("ihsShipTypeLevel2", StringType, nullAllowed),
+      StructField("ihsUkhoVesselType", StringType, nullAllowed),
+      StructField("ihsGrossTonnage", StringType, nullAllowed)
+    ))
+
+
+
+  def getMmsisByUkhoVtypeNN(spark: SparkSession, ihsDF: DataFrame, ukhoType: String): Array[String] = {
+
+    import spark.implicits._
+
+    val filteredMMSIs = ukhoType match {
+      case "Cargo" => ihsDF.filter($"ihsMMSI" =!= "")
+        .filter($"ihsUkhoVesselType" === "Bulker" || $"ihsUkhoVesselType" ==="Container" || $"ihsUkhoVesselType" ==="Roro"
+          ||$"ihsUkhoVesselType" ==="Dry Cargo"||$"ihsUkhoVesselType" ==="Combination" ||$"ihsUkhoVesselType" ==="Reefer")
+        .select($"ihsMMSI").as[String].collect
+      case _ => ihsDF.filter($"ihsMMSI" =!= "")
+        .filter($"ihsUkhoVesselType" === ukhoType)
+        .select($"ihsMMSI").as[String].collect
+    }
+
+
+
+    filteredMMSIs
+  }
+
+
+  def getMmsisByGrossTonnageNN(spark: SparkSession, ihsDF: DataFrame, minGrossTonnage: Int): Array[String] = {
+    import spark.implicits._
+
+    val filteredMMSIs = ihsDF.filter($"ihsMMSI" =!= "")
+      .filter($"ihsGrossTonnage" > minGrossTonnage)
+      .select($"ihsMMSI").as[String].collect
+
+    filteredMMSIs
+  }
+
+  def filterAisByMmsisNN(spark: SparkSession, aisDF: DataFrame, mmsis: Array[String]): DataFrame = {
+    import spark.implicits._
+
+    aisDF.filter($"MMSI".isin(mmsis: _*))
+
+  }
 
 
    def getCellAndBorders(lon: Double,lat: Double,cellSize: Double,eps:Double):( Map[String,String]   )=
    {
-      var cellIds:Map[String,String]=  Map()
+      var cellIds:Map[String,String] =  Map()
       var borderIds = Array.empty[String]
 
       val mainCell = createGridId(roundUp((lon)/cellSize),roundUp((lat)/cellSize) )
@@ -71,31 +119,31 @@ object MarineSpatialNN
 
       if ( createGridId(roundUp((lon - eps)/cellSize),roundUp((lat - eps)/cellSize) ) != mainCell )
       {
-         var tempGridId= createGridId(roundUp((lon - eps)/cellSize),roundUp((lat - eps)/cellSize) )
+         var tempGridId = createGridId(roundUp((lon - eps)/cellSize),roundUp((lat - eps)/cellSize) )
          borderIds :+= tempGridId
       }
 
       if ( createGridId(roundUp((lon + eps)/cellSize),roundUp((lat + eps)/cellSize) ) != mainCell )
       {
-         var tempGridId= createGridId(roundUp((lon + eps)/cellSize),roundUp((lat + eps)/cellSize) )
+         var tempGridId = createGridId(roundUp((lon + eps)/cellSize),roundUp((lat + eps)/cellSize) )
          borderIds :+= tempGridId
       }
 
       if ( createGridId(roundUp((lon - eps)/cellSize),roundUp((lat + eps)/cellSize) ) != mainCell )
       {
-         var tempGridId= createGridId(roundUp((lon - eps)/cellSize),roundUp((lat + eps)/cellSize) )
+         var tempGridId = createGridId(roundUp((lon - eps)/cellSize),roundUp((lat + eps)/cellSize) )
          borderIds :+= tempGridId
       }
 
       if ( createGridId(roundUp((lon + eps)/cellSize),roundUp((lat - eps)/cellSize) ) != mainCell )
       {
-         var tempGridId= createGridId(roundUp((lon + eps)/cellSize),roundUp((lat - eps)/cellSize) )
+         var tempGridId = createGridId(roundUp((lon + eps)/cellSize),roundUp((lat - eps)/cellSize) )
          borderIds :+= tempGridId
       }
 
       for (i <- borderIds)
       {
-         if(cellIds.exists(_==(i,"border")))
+         if(cellIds.exists( _== (i,"border")))
          {
 
          }
@@ -167,12 +215,12 @@ object MarineSpatialNN
 //println(cellId+"this is a cellID")
 
 
-     println("Completed id ----=========================="+cellId+"=====================---")
+//     println("Completed id ----=========================="+cellId+"=====================---")
      val tree = nnRow.foldLeft(RTree[AISLabeledPoint]())(
        (tempTree, nnPointFromRow) =>
          tempTree.insert(
-           Entry(Point(nnPointFromRow(2).asInstanceOf[AISPoint].x.toFloat, nnPointFromRow(2).asInstanceOf[AISPoint].y.toFloat), new AISLabeledPoint(
-             nnPointFromRow(2).asInstanceOf[AISPoint]
+           Entry(Point(nnPointFromRow(2).asInstanceOf[AISPoint].x.toFloat, nnPointFromRow(2).asInstanceOf[AISPoint].y.toFloat),
+             new AISLabeledPoint(nnPointFromRow(2).asInstanceOf[AISPoint]
            ))))
 
 
@@ -181,34 +229,15 @@ object MarineSpatialNN
      tree.entries.foreach(entry => {
        val point = entry.value
        if (!point.visited) {
-         point.visited = true
 
+         point.visited = true
          val neighbors = tree.search(toBoundingBox(point), inRange(point))
          point.size = neighbors.size
-
-        //stops the duplication of points from overlap, could be better if AISPoint had the flag for border ToDO
-         if(createGridId(roundUp(point.x),roundUp(point.y)) == cellId){
+         if(createGridId(roundUp(point.x/cellSize),roundUp(point.y/cellSize)) == cellId){
 
         resultsArray :+= point.x+","+point.y+","+point.size}
        }
-
      })
-
-
-
-
-
-//
-//
-//       using(new BufferedWriter(new OutputStreamWriter(new FileOutputStream()))) { //"/home/lewisj/out/"+cellId+"out.csv"
-//         writer =>
-//           for (x <- resultsArray) {
-//            //println(x)
-//
-//             writer.write(x + "\n")
-//           }
-//       }
-
      resultsArray
    }
 
@@ -235,70 +264,71 @@ object MarineSpatialNN
 
    def main(args: Array[String]): Unit =
    {
-      require(args.length >= 1, "Specify data file")
+    require(args.length >= 1, "Specify data file")
 
-      val beforeDataPath = args(0)
-      val afterDataPath = args(1)
-     val outputpath = args(2)
+    val beforeDataPath = args(0)
+    val afterDataPath = args(1)
+    val ihsPath = args(2)
+    val outputPath = args(3)
 
+    println(s"datapath= $beforeDataPath")
 
+    val spark = SparkSession.builder()
+       .appName("Nearest Neighbour - Its awesome")
+       .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+       .getOrCreate()
 
-      println(s"datapath=$beforeDataPath")
+    import spark.implicits._
+    spark.sparkContext.setLogLevel("WARN")
 
-
-//     val hadoop : FileSystem = {
-//       val conf = new Configuration( )
-//       conf.set( "fs.defaultFS", "hdfs://localhost:9000" )
-//       FileSystem.get( conf )
-//     }
-
-      
-      val spark = SparkSession.builder()
-         .appName("Nearest Neighbour - Its awesome")
-         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-         .getOrCreate()
-     import spark.implicits._
-      spark.sparkContext.setLogLevel("WARN")
-
-     val sc = spark.sparkContext
-
-     val fs = FileSystem.get(sc.hadoopConfiguration)
+     val ihsDF = spark.read
+       .option("delimiter", ",")
+       .schema(ihsSchemaSubsetNN)
+       .csv(ihsPath)
 
 
+    val beforeDF = spark.read
+     .option("header", "false")
+     .option("delimiter", "\t")
+     .schema(positionSchemaBefore201607)
+     .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+     .csv(beforeDataPath)
+     .select("MMSI", "acquisition_time", "lon", "lat")
 
 
-     val beforeDF = spark.read
-       .option("header", "false")
-       .option("delimiter", "\t")
-       .schema(positionSchemaBefore201607)
-       .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
-       .csv(beforeDataPath)
-       .select("MMSI", "acquisition_time", "lon", "lat")
+    val afterDF = spark.read
+          .option("header", "false")
+          .option("delimiter", "\t")
+          .schema(positionSchemaAfter201607)
+          .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+          .csv(afterDataPath)
+          .select("MMSI", "acquisition_time", "lon", "lat")
 
 
-      val afterDF = spark.read
-            .option("header", "false")
-            .option("delimiter", "\t")
-            .schema(positionSchemaAfter201607)
-            .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
-            .csv(afterDataPath)
-            .select("MMSI", "acquisition_time", "lon", "lat")
+    val aisPointsDF = beforeDF.union(afterDF).toDF("mmsi","acquisition_time", "lon", "lat")
+
+     val vtypeMMSIs = getMmsisByUkhoVtypeNN(spark, ihsDF, "Pass./Ferry")
+     val gtMMSIs = getMmsisByGrossTonnageNN(spark, ihsDF, 2000)
+
+     val aisFilteredDFGT = filterAisByMmsisNN(spark, aisPointsDF, gtMMSIs)
+     val aisFilteredDF2 = filterAisByMmsisNN(spark, aisFilteredDFGT, vtypeMMSIs)
+
+     aisFilteredDF2.show(5)
+    val res = aisFilteredDF2
+         .rdd
+         .flatMap(x => getGroupedIter(x))
+         .groupBy(x => getID(x))
+         .map(x => processCell(x))
+
+     print(res.take(5))
+
+    val output = res.flatMap(y => y).toDF()
+
+    output.show(5)
 
 
-     val aisPointsDF = beforeDF.union(afterDF).toDF("mmsi","acquisition_time", "lon", "lat")
-
-     aisPointsDF.show(5)
-     val res = aisPointsDF
-           .rdd
-           .flatMap(x=>getGroupedIter(x))
-           .groupBy(x=>getID(x))
-           .map(x=>processCell(x))
-
-     val output = res.flatMap(y=>y).toDF()
-
-     output.show(5)
-
-     output.write.csv(outputpath)
+    output.write
+        .csv(outputPath)
 
    }
 }
