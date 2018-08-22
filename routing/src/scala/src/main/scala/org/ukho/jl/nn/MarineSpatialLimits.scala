@@ -15,7 +15,7 @@ import scala.collection.mutable
 /**
   * Created by lewisj on 21/09/17.
   */
-object MarineSpatialLimits
+object AISCount
 {
 
   val nullAllowed = true
@@ -110,9 +110,6 @@ object MarineSpatialLimits
       val geometry = wktReader.read(row.getString(1))
       (geometry, cellId)
     }).toMap
-
-
-
     val encCoverageIndex = new STRtree()
 
     // Create index
@@ -161,6 +158,7 @@ object MarineSpatialLimits
         // TODO see if broadcast affects cluster
 
 
+
     aisPointsFilteredIHS
   }
 
@@ -177,10 +175,6 @@ object MarineSpatialLimits
 //
 //    aisPointsWithAll
 //  }
-
-
-
-
 
   def appendPoly_marspat(spark: SparkSession, AISFilteredDF: Dataset[(String, Timestamp, Double, Double,String,Double,Int)], encCoverageIndex: STRtree,
                          cellCoverageMap: Map[Geometry, String]): DataFrame = {

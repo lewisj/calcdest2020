@@ -1,7 +1,7 @@
-package org.ukho.JL.nn
+package org.ukho.jl.nn
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
 /**
