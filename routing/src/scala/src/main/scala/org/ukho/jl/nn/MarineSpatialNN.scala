@@ -313,6 +313,8 @@ object MarineSpatialNN
      val aisFilteredDFGT = filterAisByMmsisNN(spark, aisPointsDF, gtMMSIs)
      val aisFilteredDF2 = filterAisByMmsisNN(spark, aisFilteredDFGT, vtypeMMSIs)
 
+
+     //todo make a variable density dbscan grider
      aisFilteredDF2.show(5)
     val res = aisFilteredDF2
          .rdd

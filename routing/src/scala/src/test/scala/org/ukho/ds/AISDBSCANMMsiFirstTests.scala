@@ -176,10 +176,154 @@ class AISDBSCANMMsiFirstTests  extends FunSuite with DatasetSuiteBase with DataF
 
 
 
+  test("test for no cluster formed,making sure min_pnts works"){
+//test works with eps = 0.008  minimumPoints = 3
+    import spark.implicits._
+
+    val beforeDF = spark.read
+      .option("header", "false")
+      .option("delimiter", "\t")
+      .schema(positionSchemaBefore201607)
+      .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+      .csv("/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/test_dbscan_before_ais_no_clusters.txt")
+      .select("MMSI", "acquisition_time", "lon", "lat")
+
+
+    val afterDF = spark.read
+      .option("header", "false")
+      .option("delimiter", "\t")
+      .schema(positionSchemaAfter201607)
+      .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+      .csv("/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/test_dbscan_after_no_3_clusters.txt")
+      .select("MMSI", "acquisition_time", "lon", "lat")
+
+    val aisPointsDF = beforeDF.union(afterDF).toDF("mmsi","acquisition_time", "lon", "lat")
+
+    val res = aisPointsDF
+      .rdd
+      .flatMap(x => getGroupedIter(x))
+      .groupBy(x => getID(x))
+      .map(x => processCell(x))
+
+    val resultsAsDF = res.flatMap(y => y).toDF("temp","data")
+
+    val dfcount = resultsAsDF.count()
+
+    val testOutput =  resultsAsDF.withColumn("_tmp", split($"data", "\\,")).select(
+      $"_tmp".getItem(0).as("lon"),
+      $"_tmp".getItem(1).as("lat"),
+      $"_tmp".getItem(2).as("cluster")
+    ).drop("_tmp")
+      .select($"cluster")
+      .distinct()
+      .rdd
+      .map(r=> r(0)).collect()
+
+    testOutput.foreach(println)
+
+    assertTrue(testOutput.length===1)
+  }
+
+  test("test for no cluster formed,making sure EPS works"){
+    //test works with eps = 0.008  minimumPoints = 3
+    import spark.implicits._
+
+    val beforeDF = spark.read
+      .option("header", "false")
+      .option("delimiter", "\t")
+      .schema(positionSchemaBefore201607)
+      .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+      .csv("/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/test_dbscan_before_ais_no_clusters.txt")
+      .select("MMSI", "acquisition_time", "lon", "lat")
+
+
+    val afterDF = spark.read
+      .option("header", "false")
+      .option("delimiter", "\t")
+      .schema(positionSchemaAfter201607)
+      .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+      .csv("/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/test_dbscan_after_no_4_clusters.txt")
+      .select("MMSI", "acquisition_time", "lon", "lat")
+
+    val aisPointsDF = beforeDF.union(afterDF).toDF("mmsi","acquisition_time", "lon", "lat")
+
+    val res = aisPointsDF
+      .rdd
+      .flatMap(x => getGroupedIter(x))
+      .groupBy(x => getID(x))
+      .map(x => processCell(x))
+
+    val resultsAsDF = res.flatMap(y => y).toDF("temp","data")
+
+    val dfcount = resultsAsDF.count()
+
+    val testOutput =  resultsAsDF.withColumn("_tmp", split($"data", "\\,")).select(
+      $"_tmp".getItem(0).as("lon"),
+      $"_tmp".getItem(1).as("lat"),
+      $"_tmp".getItem(2).as("cluster")
+    ).drop("_tmp")
+      .select($"cluster")
+      .distinct()
+      .rdd
+      .map(r=> r(0)).collect()
+
+    testOutput.foreach(println)
+
+    assertTrue(testOutput.length===1)
+  }
+
+
+  test("test for no cluster formed,making sure multiple vessel clusters"){
+    //test works with eps = 0.008  minimumPoints = 3
+    import spark.implicits._
+
+    val beforeDF = spark.read
+      .option("header", "false")
+      .option("delimiter", "\t")
+      .schema(positionSchemaBefore201607)
+      .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+      .csv("/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/test_dbscan_before_ais_no_clusters.txt")
+      .select("MMSI", "acquisition_time", "lon", "lat")
+
+
+    val afterDF = spark.read
+      .option("header", "false")
+      .option("delimiter", "\t")
+      .schema(positionSchemaAfter201607)
+      .option("dateFormat", "yyyy-MM-dd HH:mm:ss")
+      .csv("/home/ubuntu/strozzapreti/routing/src/scala/src/main/resources/test_dbscan_after_two_clusters.txt")
+      .select("MMSI", "acquisition_time", "lon", "lat")
+
+    val aisPointsDF = beforeDF.union(afterDF).toDF("mmsi","acquisition_time", "lon", "lat")
+
+    val res = aisPointsDF
+      .rdd
+      .flatMap(x => getGroupedIter(x))
+      .groupBy(x => getID(x))
+      .map(x => processCell(x))
+
+    val resultsAsDF = res.flatMap(y => y).toDF("temp","data")
+
+    val dfcount = resultsAsDF.count()
+
+    val testOutputDF =  resultsAsDF.withColumn("_tmp", split($"data", "\\,")).select(
+      $"_tmp".getItem(0).as("lon"),
+      $"_tmp".getItem(1).as("lat"),
+      $"_tmp".getItem(2).as("cluster")
+    ).drop("_tmp")
+
+    testOutputDF.show()
+
+    val testOutputRes = testOutputDF
+      .select($"cluster")
+      .distinct()
+      .rdd
+      .map(r=> r(0)).collect()
 
 
 
-
+    assertTrue(testOutputRes.length===3)
+  }
 
 
 

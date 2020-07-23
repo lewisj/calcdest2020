@@ -9,9 +9,7 @@ import com.vividsolutions.jts.io.WKTReader
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
-import org.ukho.ds.data_prep.MarineSpatialLimits.{appendPoly_marspat, readCellBoundariesIntoRTree_marspat}
-import org.ukho.ds.data_prep.MarineSpatialLimits._
-import org.ukho.ds.data_prep.MarineSpatialNN._
+import org.ukho.jl.nn.MarineSpatialNN._
 
 /**
   * Created by kari on 12/09/2017.
@@ -91,6 +89,14 @@ class marineSpatialNNTests extends FunSuite with DatasetSuiteBase with DataFrame
   }
 
 
+
+  test("Negative 0.5"){
+
+    val gridString = getCellAndBorders(-54.50,-20.50,0.5,0.001)
+
+    assert(gridString.size == 4 )
+
+  }
 
 
 }

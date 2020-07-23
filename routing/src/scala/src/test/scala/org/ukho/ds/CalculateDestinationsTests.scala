@@ -8,8 +8,7 @@ import com.vividsolutions.jts.geom.Geometry
 import com.vividsolutions.jts.io.WKTReader
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
-import org.ukho.ds.data_prep.CalculateDestinations.{appendBand5, _}
-
+import org.ukho.jl.nn.CalculateDestinations.{appendBand5, _}
 /**
   * Created by kari on 12/09/2017.
   */

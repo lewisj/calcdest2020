@@ -96,6 +96,8 @@ object AISDBScanMMsiFirst
 
      })
 
+     println( tree.entries.map(_.value).toIterable)
+
      val treeMap = tree.entries.map(_.value).toIterable.map(
       f=> ("row",f.x.toString+","+f.y.toString+","+(f.cluster.toString))
      ).toMap

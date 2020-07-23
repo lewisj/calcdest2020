@@ -3,7 +3,8 @@ package org.ukho.ds
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.scalatest.FunSuite
-import org.ukho.ds.data_prep.AISFilterationByIHS.{filterAisByMmsis, getMmsisByShipTypeLevel2, getMmsisByGrossTonnage, ihsSchemaSubset, positionSchemaBefore201607}
+import org.ukho.jl.nn.AISFilterationByIHS.{filterAisByMmsis, getMmsisByShipTypeLevel2, getMmsisByGrossTonnage, ihsSchemaSubset, positionSchemaBefore201607}
+
 
 /**
   * Created by Jonathan on 12/09/2017.
