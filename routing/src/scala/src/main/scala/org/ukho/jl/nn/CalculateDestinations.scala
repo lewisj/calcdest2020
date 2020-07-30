@@ -56,6 +56,15 @@ object CalculateDestinations {
       StructField("radio_status", StringType, nullAllowed),
       StructField("flags", StringType, nullAllowed)))
 
+  val ihsSchemaSubset = StructType(
+    Array(StructField("ihsMMSI", StringType, nullAllowed),
+      StructField("ihsShipTypeLevel5", StringType, nullAllowed),
+      StructField("ihsShipTypeLevel2", StringType, nullAllowed),
+      StructField("ihsUkhoVesselType", StringType, nullAllowed),
+      StructField("ihsGrossTonnage", StringType, nullAllowed)
+    )) //TODO: This is not how the ihs data comes in, this pre-processing needs recording somewhere...
+
+
   def readArkevistaPositionDataBefore201607(spark: SparkSession, dataPath: String) :DataFrame  = {
     spark.read
       .option("header", "false")
@@ -75,6 +84,8 @@ object CalculateDestinations {
       .csv(dataPath)
       .select("MMSI", "acquisition_time", "lon", "lat")
   }
+
+
 
   def removeCellsFullyContainedInOthers(cellCoverageMapWithContainedCells: Map[Geometry, String]): Map[Geometry, String] = {
 
@@ -114,7 +125,7 @@ object CalculateDestinations {
 
     // Read from HDFS
     val avcsCat = spark.read
-      .option("delimiter", ",")
+      .option("delimiter", "\t")
       .csv(coveragePath)
       .collect()
 
@@ -124,9 +135,7 @@ object CalculateDestinations {
       val cellId = row.getString(0)
       val geometry = wktReader.read(row.getString(1))
         (geometry, cellId)
-      }).filter(
-        _._2.charAt(2).toString.equals("5")  //complains but only this seems to work == "5" does not
-      ).toMap
+      }).toMap
 
     val cellCoverageMap = removeCellsFullyContainedInOthers(cellCoverageMapWithContainedCells)
 

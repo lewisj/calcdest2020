@@ -3,8 +3,8 @@ package org.ukho.ds
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.scalatest.FunSuite
-import org.ukho.jl.nn.AISFilterationByIHS.{filterAisByMmsis, getMmsisByShipTypeLevel2, getMmsisByGrossTonnage, ihsSchemaSubset, positionSchemaBefore201607}
-
+import org.ukho.jl.nn.AISFilterationByIHS.{filterAisByMmsis, getMmsisByGrossTonnage, getMmsisByShipTypeLevel2, ihsSchemaSubset}
+import org.ukho.jl.nn.CalculateDestinations.positionSchemaBefore201607
 
 /**
   * Created by Jonathan on 12/09/2017.

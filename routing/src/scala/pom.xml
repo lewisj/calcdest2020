@@ -100,11 +100,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.meetup</groupId>
-            <artifactId>archery_${scala.binary.version}</artifactId>
-            <version>0.4.0</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -176,9 +171,9 @@
 
 
         <repository>
-            <id>archery-repo</id>
-            <name>Repo for Archery R-Tree</name>
-            <url>http://dl.bintray.com/meetup/maven</url>
+            <id>amznrepo</id>
+            <name>amazon repo</name>
+            <url>https://s3-endpoint/region-ID-emr-artifacts/emr-release-label/repos/maven/</url>
         </repository>
     </repositories>
 </project>
